@@ -1,0 +1,45 @@
+# macOS metadata
+# Finder and iCloud-synced folders can create local metadata that should not be shared.
+.DS_Store
+._*
+
+# Swift Package Manager
+# `.build/` is fully reproducible from `Package.swift`, so keep compiled objects and checkouts out of Git.
+.build/
+
+# App bundle build output
+# `make app` regenerates this bundle and codesigns it locally.
+build/
+
+# Xcode and SwiftPM user state
+# Keep per-machine UI state, DerivedData, and local SwiftPM configuration out of the public repository.
+DerivedData/
+.swiftpm/configuration/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# IDE settings
+# JetBrains project settings are local unless explicitly curated for the team.
+.idea/
+
+# Local automation and planning state
+# Agent runtime files and implementation notes can contain workspace-specific context, so keep them private by default.
+.superpowers/
+docs/superpowers/
+codex-notifier-mac-app-plan.md
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+temp/
+
+# Local secrets
+# The app stores runtime credentials in macOS Keychain, not in repository files.
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
