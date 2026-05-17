@@ -167,6 +167,25 @@ struct SettingsView: View {
                 }
                 .padding(.vertical, 4)
             }
+
+            GroupBox("메시지 구성") {
+                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 14) {
+                    GridRow {
+                        Text("")
+                        channelColumnHeader(.macOS)
+                        channelColumnHeader(.telegram)
+                        channelColumnHeader(.teams)
+                    }
+
+                    Divider()
+                        .gridCellColumns(4)
+
+                    messageOptionRow("전체 메시지", option: \.includeFullMessage)
+                    messageOptionRow("폴더명", option: \.includeFolderName)
+                    messageOptionRow("브랜치", option: \.includeBranchName)
+                }
+                .padding(.vertical, 4)
+            }
         }
     }
 
@@ -398,6 +417,36 @@ struct SettingsView: View {
             controller.settings.routingPolicy.channels(for: eventType).contains(channel)
         } set: { enabled in
             controller.updateRoute(eventType: eventType, channel: channel, enabled: enabled)
+        }
+    }
+
+    private func messageOptionRow(
+        _ title: String,
+        option: WritableKeyPath<NotificationMessageOptions, Bool>
+    ) -> some View {
+        GridRow {
+            Text(title)
+                .font(.callout)
+            Toggle("", isOn: messageOptionBinding(option, channel: .macOS))
+                .labelsHidden()
+                .frame(width: 92)
+            Toggle("", isOn: messageOptionBinding(option, channel: .telegram))
+                .labelsHidden()
+                .frame(width: 92)
+            Toggle("", isOn: messageOptionBinding(option, channel: .teams))
+                .labelsHidden()
+                .frame(width: 92)
+        }
+    }
+
+    private func messageOptionBinding(
+        _ option: WritableKeyPath<NotificationMessageOptions, Bool>,
+        channel: NotificationChannel
+    ) -> Binding<Bool> {
+        Binding {
+            controller.settings.messagePolicy.options(for: channel)[keyPath: option]
+        } set: { enabled in
+            controller.updateMessageOption(option, channel: channel, enabled: enabled)
         }
     }
 

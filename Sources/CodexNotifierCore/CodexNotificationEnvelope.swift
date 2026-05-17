@@ -6,15 +6,18 @@ public struct CodexNotificationEnvelope: Codable, Equatable, Sendable {
     public let codexNotifierEnvelopeVersion: Int
     public let payload: JSONValue
     public let focusTarget: MacOSFocusTarget?
+    public let context: CodexNotificationContext?
 
     public init(
         payload: JSONValue,
         focusTarget: MacOSFocusTarget?,
+        context: CodexNotificationContext? = nil,
         codexNotifierEnvelopeVersion: Int = CodexNotificationEnvelope.currentVersion
     ) {
         self.codexNotifierEnvelopeVersion = codexNotifierEnvelopeVersion
         self.payload = payload
         self.focusTarget = focusTarget
+        self.context = context
     }
 
     public static func decode(from data: Data) throws -> CodexNotificationEnvelope {
@@ -25,7 +28,8 @@ public struct CodexNotificationEnvelope: Codable, Equatable, Sendable {
 
         return CodexNotificationEnvelope(
             payload: try CodexPayloadParser.parse(data),
-            focusTarget: nil
+            focusTarget: nil,
+            context: nil
         )
     }
 }

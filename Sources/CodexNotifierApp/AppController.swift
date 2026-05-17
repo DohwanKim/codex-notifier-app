@@ -100,6 +100,16 @@ final class AppController: ObservableObject {
         objectWillChange.send()
     }
 
+    func updateMessageOption(
+        _ option: WritableKeyPath<NotificationMessageOptions, Bool>,
+        channel: NotificationChannel,
+        enabled: Bool
+    ) {
+        settings.messagePolicy.set(option, enabled: enabled, for: channel)
+        settingsStore.save(settings)
+        objectWillChange.send()
+    }
+
     func saveCredentials() {
         do {
             try keychain.save(telegramBotToken, for: .telegramBotToken)
@@ -142,7 +152,7 @@ final class AppController: ObservableObject {
                 do {
                     let payloadData = try inboxStore.readPayload(at: fileURL)
                     let envelope = try CodexNotificationEnvelope.decode(from: payloadData)
-                    let event = CodexNotificationEvent.make(from: envelope.payload)
+                    let event = CodexNotificationEvent.make(from: envelope.payload, context: envelope.context)
                     let outcomes = await deliver(event, focusTarget: envelope.focusTarget)
                     record(event: event, outcomes: outcomes)
                     try inboxStore.removePayload(at: fileURL)
@@ -307,7 +317,10 @@ final class AppController: ObservableObject {
 
         let content = UNMutableNotificationContent()
         content.title = event.title
-        content.body = event.message
+        content.body = NotificationMessageRenderer().body(
+            for: event,
+            options: settings.messagePolicy.options(for: .macOS)
+        )
         content.sound = UNNotificationSound(named: UNNotificationSoundName(CodexNotifierConstants.notificationSoundName))
         content.userInfo = MacOSNotificationFocusUserInfo.make(focusTarget: focusTarget)
 
@@ -338,7 +351,12 @@ final class AppController: ObservableObject {
             let request = try TelegramRequestBuilder(
                 token: telegramBotToken,
                 chatID: telegramChatID
-            ).makeRequest(for: event)
+            ).makeRequest(
+                text: NotificationMessageRenderer().text(
+                    for: event,
+                    options: settings.messagePolicy.options(for: .telegram)
+                )
+            )
             return await sendHTTPRequest(
                 request,
                 channel: .telegram,
@@ -355,7 +373,12 @@ final class AppController: ObservableObject {
         }
 
         do {
-            let request = try TeamsRequestBuilder(webhookURL: webhookURL).makeRequest(for: event)
+            let request = try TeamsRequestBuilder(webhookURL: webhookURL).makeRequest(
+                text: NotificationMessageRenderer().text(
+                    for: event,
+                    options: settings.messagePolicy.options(for: .teams)
+                )
+            )
             return await sendHTTPRequest(
                 request,
                 channel: .teams,

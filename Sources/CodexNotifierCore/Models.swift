@@ -27,33 +27,52 @@ public enum NotificationChannel: String, Codable, CaseIterable, Identifiable, Se
     }
 }
 
+public struct CodexNotificationContext: Codable, Equatable, Sendable {
+    public let folderName: String?
+    public let branchName: String?
+
+    public init(folderName: String?, branchName: String?) {
+        self.folderName = folderName
+        self.branchName = branchName
+    }
+}
+
 public struct CodexNotificationEvent: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
     public let receivedAt: Date
     public let type: CodexEventType
     public let title: String
     public let message: String
+    public let fullMessage: String?
+    public let context: CodexNotificationContext?
 
     public init(
         id: UUID = UUID(),
         receivedAt: Date = Date(),
         type: CodexEventType,
         title: String,
-        message: String
+        message: String,
+        fullMessage: String? = nil,
+        context: CodexNotificationContext? = nil
     ) {
         self.id = id
         self.receivedAt = receivedAt
         self.type = type
         self.title = title
         self.message = message
+        self.fullMessage = fullMessage
+        self.context = context
     }
 
-    public static func make(from payload: JSONValue) -> CodexNotificationEvent {
+    public static func make(from payload: JSONValue, context: CodexNotificationContext? = nil) -> CodexNotificationEvent {
         let eventType = EventClassifier().classify(payload)
+        let summarizer = MessageSummarizer()
         return CodexNotificationEvent(
             type: eventType,
             title: eventType.title,
-            message: MessageSummarizer().summary(from: payload, eventType: eventType)
+            message: summarizer.summary(from: payload, eventType: eventType),
+            fullMessage: summarizer.fullMessage(from: payload),
+            context: context
         )
     }
 }

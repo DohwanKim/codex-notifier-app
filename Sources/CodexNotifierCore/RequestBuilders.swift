@@ -10,6 +10,10 @@ public struct TelegramRequestBuilder: Sendable {
     }
 
     public func makeRequest(for event: CodexNotificationEvent) throws -> HTTPRequestSpec {
+        try makeRequest(text: NotificationMessageRenderer().text(for: event, options: .default))
+    }
+
+    public func makeRequest(text: String) throws -> HTTPRequestSpec {
         guard let url = URL(string: "https://api.telegram.org/bot\(token)/sendMessage") else {
             throw RequestBuilderError.invalidURL
         }
@@ -20,7 +24,7 @@ public struct TelegramRequestBuilder: Sendable {
             headers: ["Content-Type": "application/json"],
             body: try jsonData([
                 "chat_id": chatID,
-                "text": "\(event.title)\n\(event.message)"
+                "text": text
             ])
         )
     }
@@ -34,12 +38,16 @@ public struct TeamsRequestBuilder: Sendable {
     }
 
     public func makeRequest(for event: CodexNotificationEvent) throws -> HTTPRequestSpec {
+        try makeRequest(text: NotificationMessageRenderer().text(for: event, options: .default))
+    }
+
+    public func makeRequest(text: String) throws -> HTTPRequestSpec {
         HTTPRequestSpec(
             url: webhookURL,
             method: "POST",
             headers: ["Content-Type": "application/json"],
             body: try jsonData([
-                "text": "\(event.title)\n\(event.message)"
+                "text": text
             ])
         )
     }

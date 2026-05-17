@@ -45,6 +45,15 @@ public struct MessageSummarizer: Sendable {
         return truncate(normalizeWhitespace(rawSummary))
     }
 
+    public func fullMessage(from payload: JSONValue) -> String? {
+        guard let message = lastAssistantMessage(in: payload)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else {
+            return nil
+        }
+
+        return message
+    }
+
     private func lastAssistantMessage(in value: JSONValue) -> String? {
         assistantMessages(in: value).last
     }

@@ -61,6 +61,9 @@ struct CodexNotifierCoreTests {
         #expect(!summary.contains("first assistant message"))
         #expect(summary.count <= 80)
         #expect(summary.hasSuffix("..."))
+
+        let event = CodexNotificationEvent.make(from: payload)
+        #expect(event.fullMessage == longText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     @Test("redacts configured secrets from log text")
@@ -147,8 +150,19 @@ struct CodexNotifierCoreTests {
         #expect(CodexNotifierSettings.default.macOSFocusOnNotificationClick)
     }
 
-    @Test("settings store preserves legacy settings when macOS focus is missing")
-    func settingsStorePreservesLegacySettingsWithoutMacOSFocus() throws {
+    @Test("message options default to omitting optional details for every channel")
+    func messageOptionsDefaultOff() {
+        for channel in NotificationChannel.allCases {
+            let options = CodexNotifierSettings.default.messagePolicy.options(for: channel)
+
+            #expect(!options.includeFullMessage)
+            #expect(!options.includeFolderName)
+            #expect(!options.includeBranchName)
+        }
+    }
+
+    @Test("settings store preserves legacy settings when newer fields are missing")
+    func settingsStorePreservesLegacySettingsWithoutNewerFields() throws {
         struct LegacySettings: Encodable {
             let routingPolicy: RoutingPolicy
             let telegramTimeoutSeconds: TimeInterval
@@ -171,9 +185,59 @@ struct CodexNotifierCoreTests {
         let settings = SettingsStore(defaults: defaults).load()
 
         #expect(settings.macOSFocusOnNotificationClick)
+        #expect(settings.messagePolicy == .default)
         #expect(settings.routingPolicy.channels(for: .completion) == [.macOS, .telegram, .teams])
         #expect(settings.telegramTimeoutSeconds == 9)
         #expect(settings.teamsTimeoutSeconds == 7)
+    }
+
+    @Test("message renderer uses the full assistant message and enabled context lines")
+    func messageRendererUsesFullMessageAndContext() {
+        var policy = NotificationMessagePolicy.default
+        policy.set(\.includeFullMessage, enabled: true, for: .telegram)
+        policy.set(\.includeFolderName, enabled: true, for: .telegram)
+        policy.set(\.includeBranchName, enabled: false, for: .telegram)
+        let event = CodexNotificationEvent(
+            type: .completion,
+            title: "Codex 작업 완료",
+            message: "짧은 요약",
+            fullMessage: "첫 줄\n둘째 줄",
+            context: CodexNotificationContext(folderName: "codex-cli-notify-app", branchName: "main")
+        )
+
+        let text = NotificationMessageRenderer().text(
+            for: event,
+            options: policy.options(for: .telegram)
+        )
+
+        #expect(text.contains("Codex 작업 완료"))
+        #expect(text.contains("첫 줄\n둘째 줄"))
+        #expect(!text.contains("짧은 요약"))
+        #expect(text.contains("폴더: codex-cli-notify-app"))
+        #expect(!text.contains("브랜치: main"))
+    }
+
+    @Test("notification context detector includes folder name and optional branch")
+    func notificationContextDetectorIncludesFolderAndBranch() throws {
+        let directory = URL(fileURLWithPath: "/tmp/codex-cli-notify-app", isDirectory: true)
+
+        let context = CodexNotificationContextDetector(
+            currentDirectoryURL: directory,
+            branchNameProvider: { url in
+                url.lastPathComponent == "codex-cli-notify-app" ? "feature/message-options" : nil
+            }
+        ).detect()
+
+        #expect(context.folderName == "codex-cli-notify-app")
+        #expect(context.branchName == "feature/message-options")
+
+        let nonGitContext = CodexNotificationContextDetector(
+            currentDirectoryURL: directory,
+            branchNameProvider: { _ in nil }
+        ).detect()
+
+        #expect(nonGitContext.folderName == "codex-cli-notify-app")
+        #expect(nonGitContext.branchName == nil)
     }
 
     @Test("detects JetBrains terminal focus target from environment")
@@ -238,19 +302,23 @@ struct CodexNotifierCoreTests {
         )
         let envelope = CodexNotificationEnvelope(
             payload: .object(["type": .string("approval-requested")]),
-            focusTarget: target
+            focusTarget: target,
+            context: CodexNotificationContext(folderName: "codex-cli-notify-app", branchName: "main")
         )
         let wrappedData = try JSONEncoder().encode(envelope)
         let decodedWrapped = try CodexNotificationEnvelope.decode(from: wrappedData)
 
         #expect(decodedWrapped.payload["type"]?.stringValue == "approval-requested")
         #expect(decodedWrapped.focusTarget == target)
+        #expect(decodedWrapped.context?.folderName == "codex-cli-notify-app")
+        #expect(decodedWrapped.context?.branchName == "main")
 
         let legacyData = Data(#"{"status":"failed"}"#.utf8)
         let decodedLegacy = try CodexNotificationEnvelope.decode(from: legacyData)
 
         #expect(decodedLegacy.payload["status"]?.stringValue == "failed")
         #expect(decodedLegacy.focusTarget == nil)
+        #expect(decodedLegacy.context == nil)
     }
 
     @Test("history store keeps newest entries first and limits failures")

@@ -34,29 +34,79 @@ public struct RoutingPolicy: Codable, Equatable, Sendable {
     }
 }
 
+public struct NotificationMessageOptions: Codable, Equatable, Sendable {
+    public var includeFullMessage: Bool
+    public var includeFolderName: Bool
+    public var includeBranchName: Bool
+
+    public static let `default` = NotificationMessageOptions(
+        includeFullMessage: false,
+        includeFolderName: false,
+        includeBranchName: false
+    )
+
+    public init(
+        includeFullMessage: Bool,
+        includeFolderName: Bool,
+        includeBranchName: Bool
+    ) {
+        self.includeFullMessage = includeFullMessage
+        self.includeFolderName = includeFolderName
+        self.includeBranchName = includeBranchName
+    }
+}
+
+public struct NotificationMessagePolicy: Codable, Equatable, Sendable {
+    private var optionsByChannel: [NotificationChannel: NotificationMessageOptions]
+
+    public static let `default` = NotificationMessagePolicy(optionsByChannel: [:])
+
+    public init(optionsByChannel: [NotificationChannel: NotificationMessageOptions]) {
+        self.optionsByChannel = optionsByChannel
+    }
+
+    public func options(for channel: NotificationChannel) -> NotificationMessageOptions {
+        optionsByChannel[channel, default: .default]
+    }
+
+    public mutating func set(
+        _ option: WritableKeyPath<NotificationMessageOptions, Bool>,
+        enabled: Bool,
+        for channel: NotificationChannel
+    ) {
+        var options = options(for: channel)
+        options[keyPath: option] = enabled
+        optionsByChannel[channel] = options
+    }
+}
+
 public struct CodexNotifierSettings: Codable, Equatable, Sendable {
     public var routingPolicy: RoutingPolicy
     public var telegramTimeoutSeconds: TimeInterval
     public var teamsTimeoutSeconds: TimeInterval
     public var macOSFocusOnNotificationClick: Bool
+    public var messagePolicy: NotificationMessagePolicy
 
     public static let `default` = CodexNotifierSettings(
         routingPolicy: .default,
         telegramTimeoutSeconds: 5,
         teamsTimeoutSeconds: 5,
-        macOSFocusOnNotificationClick: true
+        macOSFocusOnNotificationClick: true,
+        messagePolicy: .default
     )
 
     public init(
         routingPolicy: RoutingPolicy,
         telegramTimeoutSeconds: TimeInterval,
         teamsTimeoutSeconds: TimeInterval,
-        macOSFocusOnNotificationClick: Bool
+        macOSFocusOnNotificationClick: Bool,
+        messagePolicy: NotificationMessagePolicy = .default
     ) {
         self.routingPolicy = routingPolicy
         self.telegramTimeoutSeconds = telegramTimeoutSeconds
         self.teamsTimeoutSeconds = teamsTimeoutSeconds
         self.macOSFocusOnNotificationClick = macOSFocusOnNotificationClick
+        self.messagePolicy = messagePolicy
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -64,6 +114,7 @@ public struct CodexNotifierSettings: Codable, Equatable, Sendable {
         case telegramTimeoutSeconds
         case teamsTimeoutSeconds
         case macOSFocusOnNotificationClick
+        case messagePolicy
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,5 +133,12 @@ public struct CodexNotifierSettings: Codable, Equatable, Sendable {
             Bool.self,
             forKey: .macOSFocusOnNotificationClick
         ) ?? defaults.macOSFocusOnNotificationClick
+
+        // 메시지 구성은 채널별 노출 정책이므로, 이전 버전 설정에 값이 없으면 모든 추가 정보를 숨긴다.
+        // 기본 off를 유지해야 기존 사용자가 원치 않는 전문/폴더/브랜치 정보를 외부 채널로 보내지 않는다.
+        messagePolicy = try container.decodeIfPresent(
+            NotificationMessagePolicy.self,
+            forKey: .messagePolicy
+        ) ?? defaults.messagePolicy
     }
 }

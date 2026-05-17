@@ -10,7 +10,8 @@ struct CodexNotifierHelper {
             let parsedPayload = try CodexPayloadParser.parse(payload)
             let envelope = CodexNotificationEnvelope(
                 payload: parsedPayload,
-                focusTarget: MacOSFocusTarget.detect()
+                focusTarget: MacOSFocusTarget.detect(),
+                context: CodexNotificationContextDetector().detect()
             )
             _ = try inboxStore().writePayload(try JSONEncoder().encode(envelope))
             try ensureAppRunning()
