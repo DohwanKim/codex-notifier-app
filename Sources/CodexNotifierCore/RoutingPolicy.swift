@@ -3,11 +3,7 @@ import Foundation
 public struct RoutingPolicy: Codable, Equatable, Sendable {
     private var routes: [CodexEventType: Set<NotificationChannel>]
 
-    public static let `default` = RoutingPolicy(routes: [
-        .completion: [.telegram, .teams],
-        .actionRequired: [.macOS],
-        .failed: [.macOS, .teams]
-    ])
+    public static let `default` = RoutingPolicy(routes: [:])
 
     public init(routes: [CodexEventType: Set<NotificationChannel>]) {
         self.routes = routes
@@ -15,6 +11,31 @@ public struct RoutingPolicy: Codable, Equatable, Sendable {
 
     public func channels(for eventType: CodexEventType) -> Set<NotificationChannel> {
         routes[eventType, default: []]
+    }
+
+    public func isChannelEnabled(_ channel: NotificationChannel) -> Bool {
+        CodexEventType.allCases.contains {
+            channels(for: $0).contains(channel)
+        }
+    }
+
+    public static func recommendedEvents(for channel: NotificationChannel) -> Set<CodexEventType> {
+        switch channel {
+        case .macOS:
+            [.actionRequired, .failed]
+        case .telegram:
+            [.completion]
+        case .teams:
+            [.completion, .failed]
+        }
+    }
+
+    public mutating func setChannel(_ channel: NotificationChannel, enabled: Bool) {
+        let recommendedEvents = RoutingPolicy.recommendedEvents(for: channel)
+
+        for eventType in CodexEventType.allCases {
+            set(channel, enabled: enabled && recommendedEvents.contains(eventType), for: eventType)
+        }
     }
 
     public mutating func set(

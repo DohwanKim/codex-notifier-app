@@ -24,8 +24,6 @@ struct SettingsView: View {
                     channelDetail(.telegram)
                 case .teams:
                     channelDetail(.teams)
-                case .routing:
-                    routingDetail
                 case .diagnostics:
                     diagnosticsDetail
                 }
@@ -114,6 +112,12 @@ struct SettingsView: View {
                 status: state.status
             )
 
+            GroupBox("사용 여부") {
+                Toggle("사용하기", isOn: channelEnabledBinding(channel))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            }
+
             if let latestError = state.latestError {
                 issueBanner(latestError)
             }
@@ -133,58 +137,29 @@ struct SettingsView: View {
                 .padding(.vertical, 4)
             }
 
-            GroupBox("최근 에러") {
-                channelFailures(state.recentFailures)
-                    .padding(.vertical, 2)
-            }
-        }
-    }
-
-    private var routingDetail: some View {
-        detailContainer {
-            detailHeader(
-                title: "이벤트 라우팅",
-                subtitle: "이벤트 유형마다 어느 채널로 보낼지 설정합니다.",
-                statusText: "저장 자동 적용",
-                status: .connected
-            )
-
-            GroupBox("라우팅 매트릭스") {
-                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 14) {
-                    GridRow {
-                        Text("")
-                        channelColumnHeader(.macOS)
-                        channelColumnHeader(.telegram)
-                        channelColumnHeader(.teams)
-                    }
-
-                    Divider()
-                        .gridCellColumns(4)
-
-                    routeRow("완료", eventType: .completion)
-                    routeRow("입력 필요", eventType: .actionRequired)
-                    routeRow("실패", eventType: .failed)
+            GroupBox("이벤트 라우팅") {
+                VStack(alignment: .leading, spacing: 12) {
+                    routeToggle("완료", eventType: .completion, channel: channel)
+                    routeToggle("입력 필요", eventType: .actionRequired, channel: channel)
+                    routeToggle("실패", eventType: .failed, channel: channel)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
             }
 
             GroupBox("메시지 구성") {
-                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 14) {
-                    GridRow {
-                        Text("")
-                        channelColumnHeader(.macOS)
-                        channelColumnHeader(.telegram)
-                        channelColumnHeader(.teams)
-                    }
-
-                    Divider()
-                        .gridCellColumns(4)
-
-                    messageOptionRow("전체 메시지", option: \.includeFullMessage)
-                    messageOptionRow("폴더명", option: \.includeFolderName)
-                    messageOptionRow("브랜치", option: \.includeBranchName)
+                VStack(alignment: .leading, spacing: 12) {
+                    messageOptionToggle("전체 메시지", option: \.includeFullMessage, channel: channel)
+                    messageOptionToggle("폴더명", option: \.includeFolderName, channel: channel)
+                    messageOptionToggle("브랜치", option: \.includeBranchName, channel: channel)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
+            }
+
+            GroupBox("최근 에러") {
+                channelFailures(state.recentFailures)
+                    .padding(.vertical, 2)
             }
         }
     }
@@ -389,27 +364,8 @@ struct SettingsView: View {
         return "\(failure.channel.displayName) / \(eventText)"
     }
 
-    private func channelColumnHeader(_ channel: NotificationChannel) -> some View {
-        Text(channel.displayName)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .frame(width: 92, alignment: .center)
-    }
-
-    private func routeRow(_ title: String, eventType: CodexEventType) -> some View {
-        GridRow {
-            Text(title)
-                .font(.callout)
-            Toggle("", isOn: routeBinding(eventType: eventType, channel: .macOS))
-                .labelsHidden()
-                .frame(width: 92)
-            Toggle("", isOn: routeBinding(eventType: eventType, channel: .telegram))
-                .labelsHidden()
-                .frame(width: 92)
-            Toggle("", isOn: routeBinding(eventType: eventType, channel: .teams))
-                .labelsHidden()
-                .frame(width: 92)
-        }
+    private func routeToggle(_ title: String, eventType: CodexEventType, channel: NotificationChannel) -> some View {
+        Toggle(title, isOn: routeBinding(eventType: eventType, channel: channel))
     }
 
     private func routeBinding(eventType: CodexEventType, channel: NotificationChannel) -> Binding<Bool> {
@@ -420,23 +376,20 @@ struct SettingsView: View {
         }
     }
 
-    private func messageOptionRow(
-        _ title: String,
-        option: WritableKeyPath<NotificationMessageOptions, Bool>
-    ) -> some View {
-        GridRow {
-            Text(title)
-                .font(.callout)
-            Toggle("", isOn: messageOptionBinding(option, channel: .macOS))
-                .labelsHidden()
-                .frame(width: 92)
-            Toggle("", isOn: messageOptionBinding(option, channel: .telegram))
-                .labelsHidden()
-                .frame(width: 92)
-            Toggle("", isOn: messageOptionBinding(option, channel: .teams))
-                .labelsHidden()
-                .frame(width: 92)
+    private func channelEnabledBinding(_ channel: NotificationChannel) -> Binding<Bool> {
+        Binding {
+            controller.settings.routingPolicy.isChannelEnabled(channel)
+        } set: { enabled in
+            controller.updateChannel(channel, enabled: enabled)
         }
+    }
+
+    private func messageOptionToggle(
+        _ title: String,
+        option: WritableKeyPath<NotificationMessageOptions, Bool>,
+        channel: NotificationChannel
+    ) -> some View {
+        Toggle(title, isOn: messageOptionBinding(option, channel: channel))
     }
 
     private func messageOptionBinding(
@@ -471,6 +424,7 @@ struct SettingsView: View {
     private func detailState(for channel: NotificationChannel) -> SettingsChannelDetailState {
         SettingsChannelDetailState.make(
             channel: channel,
+            routingPolicy: controller.settings.routingPolicy,
             macOSAuthorizationStatus: controller.macOSAuthorizationStatus,
             telegramBotToken: controller.telegramBotToken,
             telegramChatID: controller.telegramChatID,
@@ -481,6 +435,8 @@ struct SettingsView: View {
 
     private func statusForegroundColor(_ status: SettingsChannelStatus) -> Color {
         switch status {
+        case .unused:
+            Color(nsColor: .secondaryLabelColor)
         case .connected:
             .green
         case .needsSetup:

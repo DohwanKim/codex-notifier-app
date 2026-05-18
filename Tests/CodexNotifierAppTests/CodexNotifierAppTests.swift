@@ -5,10 +5,11 @@ import CodexNotifierCore
 
 @Suite("Codex notifier app")
 struct CodexNotifierAppTests {
-    @Test("settings sidebar starts with Codex integration")
-    func settingsSidebarStartsWithCodexIntegration() {
+    @Test("settings sidebar shows channel tabs without routing")
+    func settingsSidebarShowsChannelTabsWithoutRouting() {
+        #expect(SettingsSidebarItem.allCases == [.codex, .macOS, .telegram, .teams, .diagnostics])
         #expect(SettingsSidebarItem.allCases.first == .codex)
-        #expect(SettingsSidebarItem.codex.title == "Codex")
+        #expect(SettingsSidebarItem.allCases.map(\.title) == ["Codex", "macOS", "Telegram", "Teams", "진단"])
     }
 
     @Test("foreground macOS notifications present banner, list, and sound")
@@ -83,6 +84,7 @@ struct CodexNotifierAppTests {
     func macOSAuthorizedDetailState() {
         let state = SettingsChannelDetailState.make(
             channel: .macOS,
+            routingPolicy: routingPolicy(enabling: .macOS, for: [.actionRequired]),
             macOSAuthorizationStatus: .authorized,
             telegramBotToken: "",
             telegramChatID: "",
@@ -100,6 +102,7 @@ struct CodexNotifierAppTests {
     func macOSDeniedDetailState() {
         let state = SettingsChannelDetailState.make(
             channel: .macOS,
+            routingPolicy: routingPolicy(enabling: .macOS, for: [.failed]),
             macOSAuthorizationStatus: .denied,
             telegramBotToken: "",
             telegramChatID: "",
@@ -113,10 +116,29 @@ struct CodexNotifierAppTests {
         #expect(state.latestError?.summary == "macOS 알림 권한이 꺼져 있습니다.")
     }
 
+    @Test("unused macOS detail does not ask for notification permission")
+    func macOSUnusedDetailState() {
+        let state = SettingsChannelDetailState.make(
+            channel: .macOS,
+            routingPolicy: .default,
+            macOSAuthorizationStatus: .denied,
+            telegramBotToken: "",
+            telegramChatID: "",
+            teamsWebhookURL: "",
+            failures: []
+        )
+
+        #expect(state.status == .unused)
+        #expect(state.statusText == "미사용")
+        #expect(!state.showsMacOSPermissionRequest)
+        #expect(state.latestError == nil)
+    }
+
     @Test("Telegram detail reports missing credentials")
     func telegramMissingCredentialState() {
         let state = SettingsChannelDetailState.make(
             channel: .telegram,
+            routingPolicy: routingPolicy(enabling: .telegram, for: [.completion]),
             macOSAuthorizationStatus: .authorized,
             telegramBotToken: "token",
             telegramChatID: "",
@@ -127,6 +149,23 @@ struct CodexNotifierAppTests {
         #expect(state.status == .needsSetup)
         #expect(state.statusText == "설정 필요")
         #expect(state.latestError?.summary == "Telegram Bot Token과 Chat ID를 저장해 주세요.")
+    }
+
+    @Test("unused Telegram detail does not require credentials")
+    func telegramUnusedDetailState() {
+        let state = SettingsChannelDetailState.make(
+            channel: .telegram,
+            routingPolicy: .default,
+            macOSAuthorizationStatus: .authorized,
+            telegramBotToken: "",
+            telegramChatID: "",
+            teamsWebhookURL: "",
+            failures: []
+        )
+
+        #expect(state.status == .unused)
+        #expect(state.statusText == "미사용")
+        #expect(state.latestError == nil)
     }
 
     @Test("channel detail filters recent failures by channel")
@@ -146,6 +185,7 @@ struct CodexNotifierAppTests {
 
         let state = SettingsChannelDetailState.make(
             channel: .teams,
+            routingPolicy: routingPolicy(enabling: .teams, for: [.failed]),
             macOSAuthorizationStatus: .authorized,
             telegramBotToken: "token",
             telegramChatID: "chat",
@@ -157,5 +197,16 @@ struct CodexNotifierAppTests {
         #expect(state.statusText == "최근 실패")
         #expect(state.latestError?.summary == "HTTP 401")
         #expect(state.recentFailures.map(\.summary) == ["HTTP 401"])
+    }
+
+    private func routingPolicy(
+        enabling channel: NotificationChannel,
+        for eventTypes: Set<CodexEventType>
+    ) -> RoutingPolicy {
+        var policy = RoutingPolicy.default
+        for eventType in eventTypes {
+            policy.set(channel, enabled: true, for: eventType)
+        }
+        return policy
     }
 }

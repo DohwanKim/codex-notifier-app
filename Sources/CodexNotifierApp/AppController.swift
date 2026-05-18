@@ -73,7 +73,7 @@ final class AppController: ObservableObject {
     }
 
     var channelStatusSummary: String {
-        "macOS \(macOSStatusText) / Telegram \(credentialStatusText([telegramBotToken, telegramChatID])) / Teams \(credentialStatusText([teamsWebhookURL]))"
+        "macOS \(channelStatusText(for: .macOS)) / Telegram \(channelStatusText(for: .telegram)) / Teams \(channelStatusText(for: .teams))"
     }
 
     var statusIconState: MenuBarStatusIconState {
@@ -96,6 +96,12 @@ final class AppController: ObservableObject {
 
     func updateRoute(eventType: CodexEventType, channel: NotificationChannel, enabled: Bool) {
         settings.routingPolicy.set(channel, enabled: enabled, for: eventType)
+        settingsStore.save(settings)
+        objectWillChange.send()
+    }
+
+    func updateChannel(_ channel: NotificationChannel, enabled: Bool) {
+        settings.routingPolicy.setChannel(channel, enabled: enabled)
         settingsStore.save(settings)
         objectWillChange.send()
     }
@@ -474,6 +480,21 @@ final class AppController: ObservableObject {
 
     private func credentialStatusText(_ values: [String]) -> String {
         values.allSatisfy { !$0.isEmpty } ? "연결됨" : "미연결"
+    }
+
+    private func channelStatusText(for channel: NotificationChannel) -> String {
+        guard settings.routingPolicy.isChannelEnabled(channel) else {
+            return "미사용"
+        }
+
+        switch channel {
+        case .macOS:
+            return macOSStatusText
+        case .telegram:
+            return credentialStatusText([telegramBotToken, telegramChatID])
+        case .teams:
+            return credentialStatusText([teamsWebhookURL])
+        }
     }
 
     private var hasMissingConfiguredChannel: Bool {

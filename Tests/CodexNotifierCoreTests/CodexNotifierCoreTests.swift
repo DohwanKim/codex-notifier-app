@@ -31,13 +31,54 @@ struct CodexNotifierCoreTests {
         #expect(EventClassifier().classify(payload) == .completion)
     }
 
-    @Test("default routing matches the MVP policy")
+    @Test("default routing starts with every channel unused")
     func defaultRoutingPolicy() {
         let policy = RoutingPolicy.default
 
-        #expect(policy.channels(for: .completion) == [.telegram, .teams])
-        #expect(policy.channels(for: .actionRequired) == [.macOS])
-        #expect(policy.channels(for: .failed) == [.macOS, .teams])
+        for eventType in CodexEventType.allCases {
+            #expect(policy.channels(for: eventType).isEmpty)
+        }
+    }
+
+    @Test("enabling a channel applies recommended event routes")
+    func enablingChannelAppliesRecommendedRoutes() {
+        var macOSPolicy = RoutingPolicy.default
+        macOSPolicy.setChannel(.macOS, enabled: true)
+
+        #expect(macOSPolicy.isChannelEnabled(.macOS))
+        #expect(macOSPolicy.channels(for: .completion).isEmpty)
+        #expect(macOSPolicy.channels(for: .actionRequired) == [.macOS])
+        #expect(macOSPolicy.channels(for: .failed) == [.macOS])
+
+        var telegramPolicy = RoutingPolicy.default
+        telegramPolicy.setChannel(.telegram, enabled: true)
+
+        #expect(telegramPolicy.isChannelEnabled(.telegram))
+        #expect(telegramPolicy.channels(for: .completion) == [.telegram])
+        #expect(telegramPolicy.channels(for: .actionRequired).isEmpty)
+        #expect(telegramPolicy.channels(for: .failed).isEmpty)
+
+        var teamsPolicy = RoutingPolicy.default
+        teamsPolicy.setChannel(.teams, enabled: true)
+
+        #expect(teamsPolicy.isChannelEnabled(.teams))
+        #expect(teamsPolicy.channels(for: .completion) == [.teams])
+        #expect(teamsPolicy.channels(for: .actionRequired).isEmpty)
+        #expect(teamsPolicy.channels(for: .failed) == [.teams])
+    }
+
+    @Test("disabling a channel removes it from every event route")
+    func disablingChannelRemovesEveryEventRoute() {
+        var policy = RoutingPolicy.default
+        policy.set(.telegram, enabled: true, for: .completion)
+        policy.set(.telegram, enabled: true, for: .failed)
+
+        policy.setChannel(.telegram, enabled: false)
+
+        #expect(!policy.isChannelEnabled(.telegram))
+        for eventType in CodexEventType.allCases {
+            #expect(!policy.channels(for: eventType).contains(.telegram))
+        }
     }
 
     @Test("message summaries prefer the last assistant message and stay short")
@@ -141,7 +182,7 @@ struct CodexNotifierCoreTests {
 
         store.save(settings)
 
-        #expect(store.load().routingPolicy.channels(for: .completion) == [.macOS, .telegram, .teams])
+        #expect(store.load().routingPolicy.channels(for: .completion) == [.macOS])
         #expect(store.load().telegramTimeoutSeconds == 8)
     }
 
@@ -173,8 +214,11 @@ struct CodexNotifierCoreTests {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        var routingPolicy = RoutingPolicy.default
-        routingPolicy.set(.macOS, enabled: true, for: .completion)
+        let routingPolicy = RoutingPolicy(routes: [
+            .completion: [.macOS, .telegram, .teams],
+            .actionRequired: [.macOS],
+            .failed: [.macOS, .teams]
+        ])
         let legacy = LegacySettings(
             routingPolicy: routingPolicy,
             telegramTimeoutSeconds: 9,

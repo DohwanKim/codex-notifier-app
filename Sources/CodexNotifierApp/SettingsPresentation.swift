@@ -6,7 +6,6 @@ enum SettingsSidebarItem: Hashable, CaseIterable, Identifiable {
     case macOS
     case telegram
     case teams
-    case routing
     case diagnostics
 
     var id: Self { self }
@@ -21,8 +20,6 @@ enum SettingsSidebarItem: Hashable, CaseIterable, Identifiable {
             "Telegram"
         case .teams:
             "Teams"
-        case .routing:
-            "라우팅"
         case .diagnostics:
             "진단"
         }
@@ -38,8 +35,6 @@ enum SettingsSidebarItem: Hashable, CaseIterable, Identifiable {
             "paperplane"
         case .teams:
             "person.2.wave.2"
-        case .routing:
-            "arrow.triangle.branch"
         case .diagnostics:
             "stethoscope"
         }
@@ -48,6 +43,7 @@ enum SettingsSidebarItem: Hashable, CaseIterable, Identifiable {
 }
 
 enum SettingsChannelStatus: Equatable {
+    case unused
     case connected
     case needsSetup
     case failed
@@ -63,12 +59,14 @@ struct SettingsChannelDetailState: Equatable {
     let status: SettingsChannelStatus
     let statusText: String
     let description: String
+    let isEnabled: Bool
     let showsMacOSPermissionRequest: Bool
     let latestError: SettingsChannelIssue?
     let recentFailures: [FailureLogEntry]
 
     static func make(
         channel: NotificationChannel,
+        routingPolicy: RoutingPolicy,
         macOSAuthorizationStatus: UNAuthorizationStatus,
         telegramBotToken: String,
         telegramChatID: String,
@@ -76,18 +74,22 @@ struct SettingsChannelDetailState: Equatable {
         failures: [FailureLogEntry]
     ) -> SettingsChannelDetailState {
         let recentFailures = failures.filter { $0.channel == channel }
-        let setupIssue = setupIssue(
+        let isEnabled = routingPolicy.isChannelEnabled(channel)
+        let setupIssue = isEnabled ? Self.setupIssue(
             for: channel,
             macOSAuthorizationStatus: macOSAuthorizationStatus,
             telegramBotToken: telegramBotToken,
             telegramChatID: telegramChatID,
             teamsWebhookURL: teamsWebhookURL
-        )
+        ) : nil
         let latestFailure = recentFailures.first.map {
             SettingsChannelIssue(summary: $0.summary, statusCode: $0.statusCode)
         }
-        let latestError = setupIssue ?? latestFailure
+        let latestError = isEnabled ? setupIssue ?? latestFailure : nil
         let status: SettingsChannelStatus = {
+            if !isEnabled {
+                return .unused
+            }
             if setupIssue != nil {
                 return .needsSetup
             }
@@ -106,7 +108,8 @@ struct SettingsChannelDetailState: Equatable {
                 macOSAuthorizationStatus: macOSAuthorizationStatus
             ),
             description: description(for: channel),
-            showsMacOSPermissionRequest: channel == .macOS && setupIssue != nil,
+            isEnabled: isEnabled,
+            showsMacOSPermissionRequest: isEnabled && channel == .macOS && setupIssue != nil,
             latestError: latestError,
             recentFailures: Array(recentFailures.prefix(5))
         )
@@ -150,6 +153,8 @@ struct SettingsChannelDetailState: Equatable {
         macOSAuthorizationStatus: UNAuthorizationStatus
     ) -> String {
         switch status {
+        case .unused:
+            return "미사용"
         case .connected:
             if channel == .macOS {
                 return "권한 허용"
@@ -177,11 +182,11 @@ struct SettingsChannelDetailState: Equatable {
     private static func description(for channel: NotificationChannel) -> String {
         switch channel {
         case .macOS:
-            "Codex 입력 필요와 실패 알림을 macOS 시스템 알림으로 받습니다."
+            "사용하면 Codex 입력 필요와 실패 알림을 macOS 시스템 알림으로 받습니다."
         case .telegram:
-            "Telegram 봇으로 작업 완료와 실패 알림을 전송합니다."
+            "사용하면 Telegram 봇으로 선택한 이벤트 알림을 전송합니다."
         case .teams:
-            "Teams Workflow Webhook으로 팀 채널에 알림을 전송합니다."
+            "사용하면 Teams Workflow Webhook으로 선택한 이벤트 알림을 전송합니다."
         }
     }
 }

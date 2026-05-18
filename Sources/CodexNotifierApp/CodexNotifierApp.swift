@@ -11,16 +11,6 @@ struct CodexNotifierApp: App {
             Text(controller.recentEventSummary)
             Text(controller.channelStatusSummary)
             Divider()
-            Button("macOS 테스트") {
-                Task { await controller.sendTest(to: .macOS) }
-            }
-            Button("Telegram 테스트") {
-                Task { await controller.sendTest(to: .telegram) }
-            }
-            Button("Teams 테스트") {
-                Task { await controller.sendTest(to: .teams) }
-            }
-            Divider()
             Button("설정") {
                 controller.openSettingsWindow()
             }
