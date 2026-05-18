@@ -69,7 +69,7 @@ notify = ["/path/to/codex-cli-notify-app/build/Codex Notifier.app/Contents/MacOS
 
 설정 화면의 각 채널 탭에서 채널 사용 여부, 이벤트 라우팅, 메시지 구성을 조정할 수 있습니다.
 사용하지 않는 채널은 비밀값이나 권한을 설정하지 않아도 됩니다.
-전체 메시지/폴더명/브랜치 포함 옵션은 기본값이 모두 꺼져 있습니다.
+마무리 메시지/폴더명/브랜치 포함 옵션은 기본값이 모두 꺼져 있습니다.
 
 ## 동작 구조
 
@@ -87,7 +87,7 @@ notify = ["/path/to/codex-cli-notify-app/build/Codex Notifier.app/Contents/MacOS
 - Teams Workflow Webhook URL
 - 채널별 사용 여부
 - 이벤트별 macOS / Telegram / Teams 라우팅
-- 채널별 전체 assistant 메시지 / 폴더명 / Git 브랜치 포함 여부
+- 채널별 마무리 메시지 / 폴더명 / Git 브랜치 포함 여부
 - Telegram / Teams timeout
 
 비밀값은 macOS Keychain에 저장됩니다. 앱 설정과 최근 히스토리/실패 로그는 UserDefaults에 저장됩니다.

@@ -274,6 +274,7 @@ struct CodexNotifierCoreTests {
 
         #expect(context.folderName == "codex-cli-notify-app")
         #expect(context.branchName == "feature/message-options")
+        #expect(context.projectPath == "/tmp/codex-cli-notify-app")
 
         let nonGitContext = CodexNotificationContextDetector(
             currentDirectoryURL: directory,
@@ -282,6 +283,7 @@ struct CodexNotifierCoreTests {
 
         #expect(nonGitContext.folderName == "codex-cli-notify-app")
         #expect(nonGitContext.branchName == nil)
+        #expect(nonGitContext.projectPath == "/tmp/codex-cli-notify-app")
     }
 
     @Test("detects JetBrains terminal focus target from environment")

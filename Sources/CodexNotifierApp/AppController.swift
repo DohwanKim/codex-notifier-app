@@ -24,6 +24,7 @@ final class AppController: ObservableObject {
     private let inboxStore: InboxStore
     private let codexConfigInstaller: CodexCLIConfigInstaller
     private let focusController: MacOSFocusController
+    private let finalMessageEnricher: CodexNotificationFinalMessageEnricher
     private let foregroundNotificationPresenter = ForegroundNotificationPresenter()
     private var notificationObserver: NSObjectProtocol?
     private var settingsWindow: NSWindow?
@@ -34,7 +35,8 @@ final class AppController: ObservableObject {
         keychain: KeychainSecretStore = KeychainSecretStore(),
         inboxStore: InboxStore = InboxStore(),
         codexConfigInstaller: CodexCLIConfigInstaller = CodexCLIConfigInstaller(),
-        focusController: MacOSFocusController = MacOSFocusController()
+        focusController: MacOSFocusController = MacOSFocusController(),
+        finalMessageEnricher: CodexNotificationFinalMessageEnricher = CodexNotificationFinalMessageEnricher()
     ) {
         self.settingsStore = settingsStore
         self.historyStore = historyStore
@@ -42,6 +44,7 @@ final class AppController: ObservableObject {
         self.inboxStore = inboxStore
         self.codexConfigInstaller = codexConfigInstaller
         self.focusController = focusController
+        self.finalMessageEnricher = finalMessageEnricher
         settings = settingsStore.load()
         codexIntegrationStatus = codexConfigInstaller.status()
         historyStore.clearFailuresResolvedByHistory()
@@ -158,7 +161,10 @@ final class AppController: ObservableObject {
                 do {
                     let payloadData = try inboxStore.readPayload(at: fileURL)
                     let envelope = try CodexNotificationEnvelope.decode(from: payloadData)
-                    let event = CodexNotificationEvent.make(from: envelope.payload, context: envelope.context)
+                    let event = finalMessageEnricher.enrich(
+                        CodexNotificationEvent.make(from: envelope.payload, context: envelope.context),
+                        settings: settings
+                    )
                     let outcomes = await deliver(event, focusTarget: envelope.focusTarget)
                     record(event: event, outcomes: outcomes)
                     try inboxStore.removePayload(at: fileURL)

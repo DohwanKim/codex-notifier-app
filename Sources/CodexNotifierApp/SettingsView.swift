@@ -149,7 +149,7 @@ struct SettingsView: View {
 
             GroupBox("메시지 구성") {
                 VStack(alignment: .leading, spacing: 12) {
-                    messageOptionToggle("전체 메시지", option: \.includeFullMessage, channel: channel)
+                    messageOptionToggle("마무리 메시지", option: \.includeFullMessage, channel: channel)
                     messageOptionToggle("폴더명", option: \.includeFolderName, channel: channel)
                     messageOptionToggle("브랜치", option: \.includeBranchName, channel: channel)
                 }

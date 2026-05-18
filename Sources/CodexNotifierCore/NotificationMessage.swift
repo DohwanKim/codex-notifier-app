@@ -72,7 +72,8 @@ public struct CodexNotificationContextDetector: Sendable {
     public func detect() -> CodexNotificationContext {
         CodexNotificationContext(
             folderName: folderName(in: currentDirectoryURL),
-            branchName: branchNameProvider(currentDirectoryURL)
+            branchName: branchNameProvider(currentDirectoryURL),
+            projectPath: projectPath(in: currentDirectoryURL)
         )
     }
 
@@ -80,6 +81,11 @@ public struct CodexNotificationContextDetector: Sendable {
         let folderName = url.standardizedFileURL.lastPathComponent
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return folderName.isEmpty ? nil : folderName
+    }
+
+    private func projectPath(in url: URL) -> String? {
+        let path = url.standardizedFileURL.path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return path.isEmpty ? nil : path
     }
 
     public static func gitBranchName(at directory: URL) -> String? {

@@ -30,10 +30,12 @@ public enum NotificationChannel: String, Codable, CaseIterable, Identifiable, Se
 public struct CodexNotificationContext: Codable, Equatable, Sendable {
     public let folderName: String?
     public let branchName: String?
+    public let projectPath: String?
 
-    public init(folderName: String?, branchName: String?) {
+    public init(folderName: String?, branchName: String?, projectPath: String? = nil) {
         self.folderName = folderName
         self.branchName = branchName
+        self.projectPath = projectPath
     }
 }
 
@@ -72,6 +74,24 @@ public struct CodexNotificationEvent: Codable, Equatable, Identifiable, Sendable
             title: eventType.title,
             message: summarizer.summary(from: payload, eventType: eventType),
             fullMessage: summarizer.fullMessage(from: payload),
+            context: context
+        )
+    }
+
+    public func addingFullMessageIfMissing(_ fullMessage: String?) -> CodexNotificationEvent {
+        guard self.fullMessage == nil,
+              let fullMessage = fullMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !fullMessage.isEmpty else {
+            return self
+        }
+
+        return CodexNotificationEvent(
+            id: id,
+            receivedAt: receivedAt,
+            type: type,
+            title: title,
+            message: message,
+            fullMessage: fullMessage,
             context: context
         )
     }
