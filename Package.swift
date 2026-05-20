@@ -47,6 +47,10 @@ let package = Package(
         .testTarget(
             name: "CodexNotifierAppTests",
             dependencies: ["CodexNotifierApp"]
+        ),
+        .testTarget(
+            name: "CodexNotifierHelperTests",
+            dependencies: ["CodexNotifierHelper"]
         )
     ]
 )

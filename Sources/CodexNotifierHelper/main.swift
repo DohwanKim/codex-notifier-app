@@ -71,12 +71,8 @@ struct CodexNotifierHelper {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-
-        if let appPath = ProcessInfo.processInfo.environment["CODEX_NOTIFIER_APP_PATH"], !appPath.isEmpty {
-            process.arguments = [appPath]
-        } else {
-            process.arguments = ["-a", CodexNotifierConstants.appName]
-        }
+        let appPath = ProcessInfo.processInfo.environment["CODEX_NOTIFIER_APP_PATH"]
+        process.arguments = Self.backgroundOpenArguments(appPath: appPath)
 
         try process.run()
         process.waitUntilExit()
@@ -84,6 +80,14 @@ struct CodexNotifierHelper {
         guard process.terminationStatus == 0 else {
             throw HelperError.openFailed(process.terminationStatus)
         }
+    }
+
+    static func backgroundOpenArguments(appPath: String?) -> [String] {
+        guard let appPath, !appPath.isEmpty else {
+            return ["-g", "-a", CodexNotifierConstants.appName]
+        }
+
+        return ["-g", appPath]
     }
 
     private static func postPayloadNotification() {

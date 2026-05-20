@@ -74,7 +74,7 @@ notify = ["/path/to/codex-cli-notify-app/build/Codex Notifier.app/Contents/MacOS
 ## 동작 구조
 
 - helper는 argv 또는 stdin의 Codex JSON payload를 `~/Library/Application Support/Codex Notifier/inbox`에 저장합니다.
-- helper는 `open -a "Codex Notifier"`로 앱 실행을 보장하고 DistributedNotification 신호를 보냅니다.
+- helper는 `open -g -a "Codex Notifier"`로 앱이 백그라운드에서 실행되도록 보장하고 DistributedNotification 신호를 보냅니다.
 - 메뉴바 앱은 시작 시와 신호 수신 시 inbox를 스캔해 payload를 처리합니다.
 - 처리 완료 파일은 삭제하고, 처리 실패 파일은 `inbox/failed`로 이동합니다.
 
